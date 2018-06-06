@@ -1,0 +1,999 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AISCRATH</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    
+    <link rel="shortcut icon" href="assets/ico/favicon.ico">
+
+      <link rel="apple-touch-icon-precomposed" sizes="144x144" href="assets/ico/apple-touch-icon-144-precomposed.png">
+      <link rel="apple-touch-icon-precomposed" sizes="114x114" href="assets/ico/apple-touch-icon-114-precomposed.png">
+      <link rel="apple-touch-icon-precomposed" sizes="72x72" href="assets/ico/apple-touch-icon-72-precomposed.png">
+      <link rel="apple-touch-icon-precomposed" href="assets/ico/apple-touch-icon-57-precomposed.png">      
+      <link href="/static/assets/css/bootstrap.min.css" rel="stylesheet">
+    
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>  
+    <script src="/static/assets/js/bootstrap.min.js" type="text/javascript"></script> 
+    
+    
+    <script src="/static/assets/js/loadModel.js" type="text/javascript"></script> 
+    
+	<script>    
+		$(document).ready(function() {
+		  /*-----------------------------------------*/
+		  /* TRAIN MODEL*/
+		  $("#btn_trainModel").click(function(e){	
+            var cmbBox = document.getElementById("dataset_select");
+            var str = cmbBox.options[cmbBox.selectedIndex].text;
+			$.ajax(
+            {
+				url: "/ajax/",
+				type: "POST",
+				data: JSON.stringify({
+					action: "Train_Model",
+                    epoch: $("#trainEpoch").val(),
+					metric: $("#metric").val(),
+					model_config:$("#stringNN").val(),
+					model_name: $("#mainLoadSaveBox").val(),
+                    dataset_name: str
+				}),
+				success :function(jsonResponse)
+                {
+                    var objresponse = JSON.parse(jsonResponse);
+                    console.log(objresponse['response']);
+                    alert(objresponse['response']);
+                    if(objresponse['response']=="TRAIN MODEL SUCCESSFUL"){
+                        updateProgress(objresponse['loss'], objresponse['acc']);
+                    }
+                    else{
+                        updateProgress(0,0);
+                    }
+                    
+
+                },
+                error: function()
+                {
+                    alert(objresponse['response']);
+                    updateProgress(0,0);
+                  
+                }     
+			});
+            e.preventDefault();		  
+		  });
+		  /*-----------------------------------------*/
+		  /* LOAD MODEL VIEW*/
+		  $("#btn_loadView").click(function(e){			
+			$.ajax(
+            {
+				url: "/ajax/",
+				type: "POST",
+				data: JSON.stringify({
+					action: "Load_Model_View",
+					model_name: $("#mainLoadSaveBox").val()
+				}),
+				success :function(jsonResponse)
+                {
+                    var objresponse = JSON.parse(jsonResponse);
+                    console.log(objresponse['response']);
+                    console.log(objresponse['config_model']);
+                    if(objresponse['response']=="LOAD MODEL IN VIEW SUCCESSFUL"){
+                        loadModel(objresponse['config_model']);
+                        alert(objresponse['response']+"\n\r"+objresponse['config_model']);
+                    }
+                    else{
+                        alert(objresponse['response']);
+                    }     
+
+                },
+                error: function()
+                {
+                    alert(objresponse['response']);
+                  
+                }     
+			});
+            e.preventDefault();				  
+		  });
+		  /*-----------------------------------------*/
+		  /* LOAD MODEL GRAPH*/
+		  $("#btn_loadGraph").click(function(e){			
+			$.ajax(
+            {
+				url: "/ajax/",
+				type: "POST",
+				data: JSON.stringify({
+					action: "Load_Model_Graph",
+					model_name: $("#loadMemoryBox").val()
+				}),
+				success :function(jsonResponse)
+                {
+                    var objresponse = JSON.parse(jsonResponse);
+                    console.log(objresponse['response']);
+                    alert(objresponse['response']);
+
+                },
+                error: function()
+                {
+                    alert(objresponse['response']);
+                  
+                }        
+			});
+            e.preventDefault();				  
+		  });
+		  /*-----------------------------------------*/
+		  /*SAVE MODEL MONGO*/
+		  $("#btn_saveDB").click(function(e){
+            $.ajax(
+            {
+                url: "/ajax/",
+				type: "POST",
+				data: JSON.stringify({
+					action: "Save_Model_Mongo",
+					model_name: $("#saveDBBox").val(),
+					model_config:$("#stringNN").val()
+				}),
+				success :function(jsonResponse)
+                {
+                    var objresponse = JSON.parse(jsonResponse);
+                    console.log(objresponse['response']);
+                    alert(objresponse['response']);
+
+                },
+                error: function()
+                {
+                    alert(objresponse['response']);
+                  
+                }                 
+            });
+            e.preventDefault();    
+		  });
+		  /*-----------------------------------------*/
+		  /*SAVE MODEL GRAPH*/
+		  $("#btn_saveGraph").click(function(e){
+			$.ajax(
+            {
+                url: "/ajax/",
+				type: "POST",
+				data: JSON.stringify({
+					action: "Save_Model_Graph",
+                    model_name: $("#saveGraphBox").val(),
+					model_config:$("#stringNN").val()
+				}),
+				success :function(jsonResponse)
+                {
+                    var objresponse = JSON.parse(jsonResponse);
+                    console.log(objresponse['response']);
+                    alert(objresponse['response']);
+
+                },
+                error: function()
+                {
+                    alert(objresponse['response']);
+                  
+                }                 
+            });
+            e.preventDefault();  						  
+		  }); 	  
+		});
+        //-------------------------------------------------------------------------
+        //LOAD MODEL
+        function loadModel(params){
+            var hiddens = params[1].split(',');            
+            cont=0;
+            //alert(params[0]);
+            insertLayer("capaEntrada", params[0], null, cont++);
+            for (i=0; i<hiddens.length; i++) {
+                hiddenaux=hiddens[i].split(':');
+                //alert(hiddenaux[0]+"  "+hiddenaux[1]);
+                insertLayer("capaOculta", hiddenaux[0],hiddenaux[1], cont++);
+            }  
+            //alert(params[2]);            
+            insertLayer("capaSalida", params[2], null, cont++);
+            
+            return false;
+        }
+
+        //-------------------------------------------------------------------------
+        //INSER LAYER
+        function insertLayer(type, neurons, activation, cont){
+            var divOriginal = document.getElementById(type);
+            var clone = divOriginal.cloneNode(true);
+
+            clone.id = type + String(cont);
+
+            clone.children[0].value = neurons;
+
+            if(activation!=null){
+                alert("Tiene activacion")
+            }
+
+            /*Ajustes esteticos*/
+            switch(type){
+                case "capaEntrada":
+                    clone.children[0].style.left = 255+'px';/*Ajuste para que la caja de num neurones aparezca centrada a pesar del resize*/
+                break;
+
+                case "capaOculta":
+                    clone.children[0].style.left = 130+'px';/*Ajuste para que la caja de num neurones aparezca centrada a pesar del resize*/
+                    /*Overlap de capas para que si ensamblen*/
+                    if(document.getElementById('bottom').lastChild.className=='capaEntrada')
+                        clone.style.marginTop = -34 +'px';
+                    else
+                        clone.style.marginTop = -64 +'px';
+                break;
+
+                case "capaSalida":
+                    clone.children[0].style.left = 255+'px';/*Ajuste para que la caja de num neurones aparezca centrada a pesar del resize*/
+                    clone.style.marginTop = -64 +'px';/*Overlap de capas para que si ensamblen*/
+                break;
+            }
+
+            document.getElementById('bottom').appendChild(clone);
+        }
+
+        //-------------------------------------------------------------------------
+        //UPDATE PROGRESS BAR
+        function updateProgress(error, accuracy){
+            var accuracyBar = document.getElementById('progressAccuracy');
+            var errorBar = document.getElementById('progressError');
+
+            if(accuracy>100){
+                accuracyBar.style.height = 100+'%';
+            }else{
+                accuracyBar.style.height = accuracy+'%';
+            }
+
+            if(error>100){
+                errorBar.style.height = 100+'%';	
+            }else{
+                errorBar.style.height = error+'%';
+            }
+
+            return false;
+        }
+        
+        
+        //-------------------------------------------------------------------------
+		
+	</script>
+    
+    
+    <script>
+        var contCapaEntrada = 0;
+        var contCapaOculta = 0;
+        var contCapaSalida = 0;
+        var contFunSig = 0;
+        var contFunTanh = 0;
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+            this.style.opacity = '0.4';
+        }
+
+        function drop(ev) {
+            ev.preventDefault();/*Previene cosas que este evento hace por default*/
+            var data = ev.dataTransfer.getData("text");
+
+            if(ev.target==document.getElementById('bottom')){
+                var div = document.getElementById(data);
+                var clone = div.cloneNode(true);
+
+                //Da nombre diferente a cada capa/funcion que se agrega dado que cada uno tiene el mismo ID si no se cambia y gg para detectar cual es cual
+                switch(clone.className){
+                    case 'capaEntrada':
+                        if(!(document.getElementById('bottom').hasChildNodes())){/*Verificar que no hay nada agregado ya que entrada siempre debe ser la primera*/
+                            clone.id = String(contCapaEntrada).concat(clone.id);
+                            contCapaEntrada++;
+                            clone.children[0].style.left = 255+'px';/*Ajuste para que la caja de num neurones aparezca centrada a pesar del resize*/
+                            ev.target.appendChild(clone); 
+
+                        }else{
+                            alert("La capa de entrada siempre debe de ser la primera capa en la red");
+                        }
+                        
+                    break;
+
+                    case 'capaOculta':
+                        /*Verificar que capa anterior sea de entrada u oculta*/
+                        if(document.getElementById('bottom').lastChild.className=='capaEntrada'||document.getElementById('bottom').lastChild.className=='capaOculta'){
+                            clone.id = String(contCapaOculta).concat(clone.id);
+                            contCapaOculta++;
+                            clone.children[0].style.left = 130+'px';/*Ajuste para que la caja de num neurones aparezca centrada a pesar del resize*/
+                            
+                            /*Overlap de capas para que si ensamblen*/
+                            if(document.getElementById('bottom').lastChild.className=='capaEntrada')
+                                clone.style.marginTop = -34 +'px';
+                            else
+                                clone.style.marginTop = -64 +'px';
+                            ev.target.appendChild(clone); 
+                        }else{
+                            alert("La capa oculta debe de ir despues de una capa de entrada u otra capa oculta");
+                        }
+
+                    break;
+
+                    case 'capaSalida':
+                        if(document.getElementById('bottom').lastChild.className=='capaOculta'){/*Verificar que capa anterior sea una capa oculta*/
+                            clone.id = String(contCapaSalida).concat(clone.id);
+                            contCapaSalida++;
+                            clone.children[0].style.left = 255+'px';/*Ajuste para que la caja de num neurones aparezca centrada a pesar del resize*/
+                            clone.style.marginTop = -64 +'px';/*Overlap de capas para que si ensamblen*/
+                            ev.target.appendChild(clone);
+                        }else{
+                            alert("La capa de salida debe de ir despues de una capa oculta");
+                        }
+                        
+                    break;
+
+                    case 'sigmoid': alert("Las funciones de activacion siempre deben de ir en una capa oculta");
+                    break;
+
+                    case 'tanh': alert("Las funciones de activacion siempre deben de ir en una capa oculta");
+                    break;
+
+                    default: alert("Eso no se puede hacer :c");
+                    break;
+                }
+
+            /*Caso que algo se dropee en una Oculta que no sea la del panel, childElementCount debe de ser al menos 1 por el text box del numero de neuronas*/
+            }else if(ev.target.className=="capaOculta"&&ev.target!=document.getElementById('capaOculta')&&(ev.target.childElementCount<=1)){
+
+                var div = document.getElementById(data);
+                var clone = div.cloneNode(true);
+
+                switch(clone.className){
+                    case 'sigmoid': 
+                        ev.target.appendChild(clone);
+                        clone.style.position = "absolute";
+                        clone.style.left = 334+'px';
+                        clone.style.top = 49+'px';
+                        /*alert("Funcion Sigmoidal Agregada");*/
+                    break;
+
+                    case 'tanh': 
+                        ev.target.appendChild(clone);
+                        clone.style.position = "absolute";
+                        clone.style.left = 334+'px';
+                        clone.style.top = 49+'px';
+                        /*alert("Funcion Tanh Agregada");*/
+                    break;
+
+                    default: alert("Eso no se puede hacer :c");
+                    break;
+                }
+            /*Caso que se esta quitando algo del area, aun falta implementar que se puedan quitar funciones de activacion*/
+            }else{
+                var select = document.getElementById('bottom');
+                var nodes = select.childNodes;
+                for(var i=0; i<nodes.length; i++){
+                    if(nodes[i].id==document.getElementById(data).id){
+                        select.removeChild(nodes[i]);
+                        break;
+                    }
+                }
+            }
+
+            updateModelInTextBoxes();
+        }
+
+        function fileCaptured(){
+        	var file1 = document.getElementById('fileInput1').value;
+        	var file2 = document.getElementById('fileInput2').value;
+
+        	//Arreglo dado que chorme utiliza "fakepath"
+    		file1 = file1.split("\\")[2];
+    		file2 = file2.split("\\")[2];
+
+        	if(file1!=null&&file1!=undefined)
+        		document.getElementById('filetext1').value = file1;
+        	if(file2!=null&&file2!=undefined)
+        		document.getElementById('filetext2').value = file2;
+        }
+
+        //Updates other textboxes regarding load/save model
+        function updateOthersSaveLoad(){
+        	var x = document.getElementById('mainLoadSaveBox').value;
+			document.getElementById('loadMemoryBox').value = x;
+        	document.getElementById('saveDBBox').value = x;
+        	document.getElementById('saveGraphBox').value = x;
+        }
+
+        function updateModelInTextBoxes(){
+        	var drawArea = document.getElementById('bottom');
+			var nodes = drawArea.childNodes;
+			var sendString = new Array();
+
+			for(var i=0;i<nodes.length;i++){
+				//Capa entrada
+				if(i==0){
+					sendString.push(nodes[i].children[0].value);
+					continue;
+				}
+
+				//Capa salida
+				if(i==nodes.length-1&&nodes[i].className=="capaSalida"){
+					sendString.push(nodes[i].children[0].value);
+					break;
+				}
+
+				//Capa oculta n
+				sendString.push(nodes[i].children[0].value + ':' + nodes[i].children[1].className)		
+			}
+
+			document.getElementById('stringNN').value = sendString.toString();
+        }
+
+    </script>
+    
+    <script src="/static/assets/js/progress.js" type="text/javascript"></script>
+    <script src="/static/assets/js/jquery-3.3.1.min.js"></script>
+
+    <link href="jquery-ui.css" rel="stylesheet">
+
+    <style>
+        .capaEntrada{
+            /*border: 1px solid black;*/
+            width: 519px;
+            height: 84px;
+            float: left;
+            margin-right: 5px;
+
+            background: url(static/assets/img/Entrada.png)center no-repeat;
+            background-size: 100% 100%;
+
+            position: relative;
+        }
+
+        .capaSalida{
+            /*border: 1px solid white;*/
+            width: 519px;
+            height: 115px;
+            float: left;
+            margin-right: 5px; 
+            background: url(static/assets/img/Salida.png)center no-repeat;        
+            background-size: 100% 100%;  
+
+            position: relative;  
+        }
+
+
+        .capaOculta{
+           /* border: 1px solid purple;*/
+            width: 519px;
+            height: 146px;
+            float: left;
+            margin-right: 5px;
+
+            background: url(static/assets/img/Oculta.png)center no-repeat;
+            background-size: 100% 100%;
+            /*transform: scale(.75);*/
+
+            position: relative;/*Para poder poner los elementos en un lugar especifico*/
+        }
+
+        .sigmoid{
+            width: 101px;
+            height: 50px;
+            float: left;
+            margin: 0 auto;
+           /* border: 1px solid brown;*/
+            background: url(static/assets/img/funcActivacionSigm.png)center no-repeat;
+        }
+
+        .tanh{
+           /* border: 1px solid red;*/
+            width: 101px;
+            height: 50px;
+            float: left;
+            margin-right: 5px;
+            background: url(static/assets/img/funcActivacionTanh.png)center no-repeat;
+        }
+
+        .container-left{
+            width: 20%;
+            background-color: #bababa;
+            height: 100vh;
+            float: left;
+            outline: solid black;
+            box-sizing: border-box;
+           /* padding: 10px;*/
+        }
+
+        .container-left-entrada{
+            height: 20vh;
+           /* background-color: green;*/
+            padding: 5px;
+            margin-bottom: 20px;
+            font-family: "Helvetica";
+            font-weight: bold;
+
+            /*Centrar todo*/
+            display: flex;
+            flex-wrap: wrap; /* Optional. only if you want the items to wrap */
+            justify-content: center; /* For horizontal alignment */
+            align-items: center; /* For vertical alignment */   
+        }
+
+        .container-left-oculta{
+            height: 20vh;
+            /*background-color: yellow;*/
+            padding: 5px;
+            margin-bottom: 20px;
+            font-family: "Helvetica";
+            font-weight: bold;
+
+            /*Centrar todo*/
+            display: flex;
+            flex-wrap: wrap; /* Optional. only if you want the items to wrap */
+            justify-content: center; /* For horizontal alignment */
+            align-items: center; /* For vertical alignment */
+        }
+
+        .container-left-salida{
+            height: 20vh;
+            /*background-color: grey;*/
+            padding: 5px;
+            margin-bottom: 20px;
+            font-family: "Helvetica";
+            font-weight: bold;
+
+            /*Centrar todo*/
+            display: flex;
+            flex-wrap: wrap; /* Optional. only if you want the items to wrap */
+            justify-content: center; /* For horizontal alignment */
+            align-items: center; /* For vertical alignment */
+        }
+
+        .container-left-activation{
+            height: 20vh;
+           /* background-color: purple;*/
+            padding: 5px;
+            margin-bottom: 20px;
+        }
+
+        .container-left-activation-left{
+            width: 42%;
+            height: 90%;
+           /* background-color: magenta;*/
+            padding: 5px;
+            margin: 5px;
+            float:left;
+            font-family: "Helvetica";
+
+            /*Centrar todo*/
+            display: flex;
+            flex-wrap: wrap; /* Optional. only if you want the items to wrap */
+            justify-content: center; /* For horizontal alignment */
+            align-items: center; /* For vertical alignment */
+        }
+
+        .container-left-activation-right{
+            width: 35%;
+            height: 90%;
+           /* background-color: aqua;*/
+            padding: 5px;
+            margin: 5px;
+            float:right;
+            font-family: "Helvetica";
+
+            /*Centrar todo*/
+            display: flex;
+            flex-wrap: wrap; /* Optional. only if you want the items to wrap */
+            justify-content: center; /* For horizontal alignment */
+            align-items: center; /* For vertical alignment */
+        }
+
+        .container-middle{
+            width: 64%;
+           /* background-color: green;*/
+            height: 100vh;
+            float: left;
+            outline: solid black;
+            box-sizing: border-box;
+            padding: 10px;
+
+            /*Centrar y crear tabla de 1 columna*/
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* For horizontal alignment */
+            align-items: center; /* For vertical alignment */
+        }
+
+        .container-right{
+            width: 16%;
+            float: left;
+            background-color: #bababa;
+
+        }
+
+        .container-right-top{
+            /*background-color: blue;*/
+            width:100%;
+            height: 18vh;
+            outline: solid black;
+            box-sizing: border-box;
+            padding: 15px;
+        }
+
+        .container-right-middle{
+            width: 100%;
+           /* background-color: yellow;*/
+            height: 62vh;
+            float: right;
+            outline: solid black;
+            box-sizing: border-box;
+            padding-right: 50px;
+            padding-left: 50px;
+            padding-top: 25px;
+        }
+
+        .container-right-bottom{
+            width: 100%;
+            height: 20vh;
+            float: right;
+            outline: solid black;
+            box-sizing: border-box;
+            padding: 10px;
+
+            overflow-y: scroll;
+
+            font-size: 18px;
+            color: #ffffff;
+            font-family: Arial;
+        }
+
+        .submitWrapper{
+            text-align: center; 
+        }
+
+        .accuracyBar{
+            width:35%;
+            height: 90%;
+            float: left;
+
+            position:relative;
+        }
+
+        .errorBar{
+            width:35%;
+            height: 90%;
+            float: right;
+
+            position:relative;
+        }
+
+        .progressBarAccuracy{
+        	width: 100%;
+            height: 0%;
+            background-color: green;
+
+            position: absolute;
+            bottom:0;
+        }
+
+        .progressBarError{
+        	width: 100%;
+            height: 0%;
+            background-color: red;
+
+            position: absolute;
+            bottom:0;
+        }
+
+        .neuronaWrapper{
+            width:20px;
+        }
+
+        input[type="submit"]{
+            /*border-top: 2px solid #a3ceda;
+            border-left: 2px solid #a3ceda;
+            border-right: 2px solid #4f6267;
+            border-bottom: 2px solid #4f6267;
+            padding: 2px 8px;
+            font-size: 12px;
+            background-color: #c4f1fe;
+            font-weight: bold;
+            color: #2d525d;
+            border-radius: 8px;*/
+            -webkit-border-radius: 28;
+			-moz-border-radius: 28;
+			border-radius: 5px;
+			/*text-shadow: 1px 1px 8px #666666;*/
+			font-family: Arial;
+			color: black;
+			font-size: 12px;
+			background: #eee;
+			padding: 2px 8px;
+			text-decoration: none;
+
+        }
+
+        input[type="submit"]:hover{
+            background: #ccc;
+  			text-decoration: none;
+        }
+
+        input[type="file"]{
+            border:4px solid #ccc;
+            padding: 2px 8px;
+            font-size: 12px;
+            background-color: #eee;
+            font-weight: bold;
+            color: black;
+            border-radius: 5px;
+            float:left;
+
+        }
+
+        select{
+            font-size: 12px;
+            background-color: #eee;
+            color: black;
+        }
+
+        option{
+            font-weight: bold;
+        }
+
+        input[type=text]{
+            font-size: 12px;
+            background-color: #eee;
+            color: black;
+        }
+
+        /*Accordion stuff*/
+
+        .accordion {
+		    background-color: #eee;
+		    color: #444;
+		    cursor: pointer;
+		    padding: 18px;
+		    width: 100%;
+		    border: none;
+		    text-align: left;
+		    outline: none;
+		    font-size: 15px;
+		    transition: 0.4s;
+		}
+
+		.active, .accordion:hover {
+		    background-color: #ccc;
+		}
+
+		.accordion:after {
+		    content: '\002B';
+		    color: #777;
+		    font-weight: bold;
+		    float: right;
+		    margin-left: 5px;
+		}
+
+		.active:after {
+		    content: "\2212";
+		}
+
+		.panel {
+		    background-color: #f2f2f2;
+		    max-height: 0;
+		    overflow: hidden;
+		    transition: max-height 0.2s ease-out;
+		}
+
+		body{
+			font-size: 15px;
+		}
+
+		.filewrapper{
+			height:18;
+			display:block;
+
+			position: relative;
+		}
+        .bgimg {
+            background-image: url(static/assets/img/graphy.png);
+        }
+
+    </style>
+</head>
+<body>
+    <body id="bootstrap-js">
+
+      <div class="navbar">
+         <div class="navbar-inner">
+            <div class="container" style="width: auto;">
+               <a class="brand" href="#">AISCRATH</a>             
+            </div>
+         </div>
+      </div>
+     </body>
+    <!--Create Left Panel-->
+    <div id="leftPanel" class="container-left">
+        <!--Create subpanel for each data (submenus) and add initial divs (elements)-->
+        <button class="accordion">Capa de Entrada</button>
+        <div class="panel">
+	        <div id="panelEntrada" class="container-left-entrada" ondrop="drop(event)" ondragover="allowDrop(event)">
+	            <div id="capaEntrada" class="capaEntrada" draggable="true" ondragstart="drag(event)">
+	                <input id=numNeuronas type="number" value="1" min="1" required style="position:absolute; width: 30px; left:177px; top:34px; border:transparent;" onchange="updateModelInTextBoxes()">
+	            </div>
+	        </div>
+        </div>
+
+        <button class="accordion">Capa Oculta</button>
+        <div class="panel">
+	        <div id="panelOculta" class="container-left-oculta" ondrop="drop(event)" ondragover="allowDrop(event)">
+	            <div id="capaOculta" class="capaOculta" draggable="true" ondragstart="drag(event)"ondrop=" drop(event)" ondragover="allowDrop(event)">
+	                <input id=numNeuronas type="number" value="1" min="1" required style="position:absolute; width: 30px; left:91px; top:65px; border:transparent;" onchange="updateModelInTextBoxes()">
+	            </div>
+	        </div>
+        </div>
+
+        <button class="accordion">Capa de Salida</button>
+        <div class="panel">
+	        <div id="panelSalida" class="container-left-salida" ondrop="drop(event)" ondragover="allowDrop(event)">
+	            <div id="capaSalida" class="capaSalida" draggable="true" ondragstart="drag(event)">
+	                <input id=numNeuronas type="number" value="1" min="1" required style="position:absolute; width: 30px; left:177px; top:65px; border:transparent;" onchange="updateModelInTextBoxes()">
+	            </div>
+	        </div>
+        </div>
+
+        <!--Divide in 2 sections for each type of activation function-->
+        <button class="accordion">Funciones de Activacion</button>
+        <div class="panel">
+	        <div id="panelActivacion" class="container-left-activation">
+	            <div id="panelSigmoidal" class="container-left-activation-left" ondrop="drop(event)" ondragover="allowDrop(event)">Sigmoidal
+	                <div id="funcSigmoidal" class="sigmoid" draggable="true" ondragstart="drag(event)"></div>
+	            </div>
+
+	            <div id="panelTanh" class="container-left-activation-right" ondrop="drop(event)" ondragover="allowDrop(event)">Tanh
+	                <div id="funcTanh" class="tanh" draggable="true" ondragstart="drag(event)"></div>
+	            </div>
+	        </div>
+        </div>
+    </div>
+    <!-- ------------------------------------------------------------------ -->
+    <!-- ------------------------------------------------------------------ -->
+    <!-- ------------------------------------------------------------------ -->
+    <!-- ------------------------------------------------------------------ -->
+    <div id="bottom" class="container-middle bgimg" ondrop="drop(event)" ondragover="allowDrop(event)"></div>    
+    
+    
+    <!-- ------------------------------------------------------------------ -->
+    <!-- ------------------------------------------------------------------ -->
+    <!-- ------------------------------------------------------------------ -->
+    <!-- ------------------------------------------------------------------ -->
+    <div class="container-right">
+        <div class="container-right-top">
+            <br><br>
+            SELECCIONAR DATASET
+            <br><br>
+            <select id="dataset_select">
+                <option value="Boston">Boston | Features: 13</option>
+                <option value="Iris">Iris | Features: 4</option>
+                <option value="Diabetes">Diabetes | Features: 10</option>
+                <option value="Digits">Digits | Features: 64</option>
+                <option value="Wine">Wine | Features: 13</option>
+                <option value="Breast_Cancer">Breast_Cancer | Features: 30</option>
+                <option value="Or">Or | Features: 2</option>
+                <option value="And">And | Features: 2</option>
+                <option value="Xor">Xor | Features: 2</option>
+            </select>
+            <!--Comienza cosa chola para hacer un "custom" file selecter-->
+            <!--
+            <div class="submitWrapper">
+                <form action="loadDataset" method="get" target="_blank">
+                    <div class= "filewrapper">
+                    	
+                    	<input type="text" id="filetext1" style="position:absolute; left:0px; top:0px; height:25px; width: 250px;z-index:0;">
+                    	<input type="file" id="fileInput1" style="opacity: 0;" onchange="fileCaptured()">
+                    </div>
+                    <br><br>
+                    <input type="submit" value="Load Dataset" style="float:left;">
+                </form>
+                <br><br>
+                <form onsubmit="test();">
+                    <div class= "filewrapper">
+                    	<input type="text" id="filetext2" style="position:absolute; left:0px; top:0px; height:25px; width: 250px;z-index:0;">
+                    	<input type="file" id="fileInput2" style="opacity: 0;" onchange="fileCaptured()">
+                    </div>
+                    <br><br>
+                    <input type="submit" value="Modify Dataset" style="float:left;">
+                </form>
+            </div>
+            -->
+        </div>
+
+        <div class="container-right-middle">
+            <div id="accuracyBar" class="accuracyBar">
+                <div id="progressAccuracy" class="progressBarAccuracy">
+                </div>
+            </div>
+            <div id="errorBar" class="errorBar">
+                <div id="progressError" class="progressBarError">
+                </div>
+            </div>
+        </div>
+
+        <div class="container-right-bottom">
+
+            <!--FORM TRAIN MODEL -->
+            <div class=submitWrapper>
+                <form method="post">
+                    <input id="btn_trainModel" type="submit" value="Train Model">
+                    <input id="trainEpoch" name="numEpoch" type="text" placeholder="Numero de Epocas"><br><br>
+                    Metric:
+                    <select name="metrica" id="metric">
+                        <option value="R2">R2</option>
+                        <option value="Accuracy">Accuracy</option>
+                    </select>
+
+                </form>
+            </div>
+            <br>
+
+            <!--FORM LOAD MODEL VIEW-->
+            <div class=submitWrapper>
+				<form method="post">
+					Nombre a Guardar/Salvar:
+					<input id="mainLoadSaveBox" type="text" onchange="updateOthersSaveLoad()">
+					<br><br>
+					<input id="btn_loadView" type="submit" value="Cargar Modelo: En Vista" style="float:left">
+				</form>
+			</div>
+			<!--FORM LOAD MODEL GRAPH-->
+			<div class=submitWrapper>
+				<form method="post">
+					<input id="btn_loadGraph" type="submit" value="Cargar Modelo: Grafo en Memoria" style="float:left">
+					<input id="loadMemoryBox" type="text" style="display: none;">
+				</form>
+			</div>
+			<!--FORM SAVE MODEL MONGO-->
+            <div class=submitWrapper>
+				<form method="post" >
+					<input id="btn_saveDB" type="submit" value="Guardar Modelo: Guardarlo en Mongo" style="float:left">
+					<input id="saveDBBox" name="txtBox_SM_name_model_DB" type="text" style="display: none;">
+				</form>
+			</div>
+			<!--FORM SAVE MODEL GRAPH-->
+			<div class=submitWrapper>
+				<form method="post" >
+					<input id="btn_saveGraph" type="submit" value="Guardar Modelo: Guardar el Grafo" style="float:left">
+					<input id="saveGraphBox"  type="text" style="display: none;">
+				</form>
+			</div>
+			<input type=text id=stringNN style="display: none;">
+        </div>
+    </div>
+	<!--
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    -->
+    
+    <script>
+    	//script para acordion, solo funciona si lo pones aquí :V
+		var acc = document.getElementsByClassName("accordion");
+		var i;
+
+		for (i = 0; i < acc.length; i++) {
+		  acc[i].addEventListener("click", function() {
+		    this.classList.toggle("active");
+		    var panel = this.nextElementSibling;
+		    if (panel.style.maxHeight){
+		      panel.style.maxHeight = null;
+		    } else {
+		      panel.style.maxHeight = panel.scrollHeight + "px";
+		    } 
+		  });
+		}
+
+
+	</script>
+    
+    
+
+</body>
+</html>
